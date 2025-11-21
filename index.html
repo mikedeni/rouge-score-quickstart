@@ -15,17 +15,23 @@
 
         <form id="scoreForm" class="bg-white rounded-lg shadow-lg p-6 space-y-6">
             <div>
-                <label for="reference" class="block text-sm font-semibold text-gray-700 mb-2">📄 Job Description</label>
-                <textarea id="reference" rows="6" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="วาง Job Description หรือ Job Spec ที่ต้องการเปรียบเทียบ..."></textarea>
+                <label for="resume" class="block text-sm font-semibold text-gray-700 mb-2">📄 Resume (PDF)</label>
+                <input type="file" id="resume" accept=".pdf" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             </div>
 
             <div>
-                <label for="candidate" class="block text-sm font-semibold text-gray-700 mb-2">👤 Resume</label>
-                <textarea id="candidate" rows="6" required
+                <label for="job_spec" class="block text-sm font-semibold text-gray-700 mb-2">📋 Job Spec (คุณสมบัติ)</label>
+                <textarea id="job_spec" rows="4" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="วาง Resume หรือประวัติของผู้สมัคร..."></textarea>
+                    placeholder="วุฒิการศึกษา เกรด ประสบการณ์..."></textarea>
+            </div>
+
+            <div>
+                <label for="job_description" class="block text-sm font-semibold text-gray-700 mb-2">💼 Job Description (หน้าที่งาน)</label>
+                <textarea id="job_description" rows="4" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="หน้าที่ความรับผิดชอบ..."></textarea>
             </div>
 
             <button type="submit"
@@ -53,58 +59,60 @@
         document.getElementById('scoreForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const reference = document.getElementById('reference').value;
-            const candidate = document.getElementById('candidate').value;
+            const formData = new FormData();
+            formData.append('resume', document.getElementById('resume').files[0]);
+            formData.append('job_spec', document.getElementById('job_spec').value);
+            formData.append('job_description', document.getElementById('job_description').value);
 
             try {
-                const response = await fetch('/score', {
+                const response = await fetch('/combined-score-pdf', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reference, candidate })
+                    body: formData
                 });
 
                 const data = await response.json();
 
-                const avgScore = (data.rouge1.fmeasure + data.rougeL.fmeasure) / 2;
-                const percentage = (avgScore * 100).toFixed(1);
+                const percentage = (data.combined_score * 100).toFixed(1);
 
                 document.getElementById('results').innerHTML = `
                     <div class="text-center mb-6">
-                        <div class="inline-flex items-center justify-center w-32 h-32 rounded-full ${getScoreColor(avgScore)} text-white mb-3">
+                        <div class="inline-flex items-center justify-center w-32 h-32 rounded-full ${getScoreColor(data.combined_score)} text-white mb-3">
                             <div class="text-center">
                                 <div class="text-3xl font-bold">${percentage}%</div>
-                                <div class="text-sm">${getScoreLabel(avgScore)}</div>
+                                <div class="text-sm">${getScoreLabel(data.combined_score)}</div>
                             </div>
                         </div>
-                        <h3 class="text-xl font-semibold text-gray-800">คะแนนความตรงกัน</h3>
+                        <h3 class="text-xl font-semibold text-gray-800">คะแนนความตรงกันรวม</h3>
                     </div>
 
                     <div class="space-y-4">
                         <div class="bg-gray-50 rounded-lg p-4">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="font-semibold text-gray-700">ROUGE-1</span>
-                                <span class="text-sm text-gray-600">${(data.rouge1.fmeasure * 100).toFixed(1)}%</span>
+                                <span class="font-semibold text-gray-700">Semantic: Job Spec</span>
+                                <span class="text-sm text-gray-600">${(data.semantic_spec_score * 100).toFixed(1)}%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div class="${getScoreColor(data.rouge1.fmeasure)} h-3 rounded-full transition-all duration-500" style="width: ${data.rouge1.fmeasure * 100}%"></div>
-                            </div>
-                            <div class="flex justify-between mt-1 text-xs text-gray-500">
-                                <span>Precision: ${(data.rouge1.precision * 100).toFixed(1)}%</span>
-                                <span>Recall: ${(data.rouge1.recall * 100).toFixed(1)}%</span>
+                                <div class="${getScoreColor(data.semantic_spec_score)} h-3 rounded-full transition-all duration-500" style="width: ${data.semantic_spec_score * 100}%"></div>
                             </div>
                         </div>
 
                         <div class="bg-gray-50 rounded-lg p-4">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="font-semibold text-gray-700">ROUGE-L</span>
-                                <span class="text-sm text-gray-600">${(data.rougeL.fmeasure * 100).toFixed(1)}%</span>
+                                <span class="font-semibold text-gray-700">Semantic: Job Description</span>
+                                <span class="text-sm text-gray-600">${(data.semantic_desc_score * 100).toFixed(1)}%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div class="${getScoreColor(data.rougeL.fmeasure)} h-3 rounded-full transition-all duration-500" style="width: ${data.rougeL.fmeasure * 100}%"></div>
+                                <div class="${getScoreColor(data.semantic_desc_score)} h-3 rounded-full transition-all duration-500" style="width: ${data.semantic_desc_score * 100}%"></div>
                             </div>
-                            <div class="flex justify-between mt-1 text-xs text-gray-500">
-                                <span>Precision: ${(data.rougeL.precision * 100).toFixed(1)}%</span>
-                                <span>Recall: ${(data.rougeL.recall * 100).toFixed(1)}%</span>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-semibold text-gray-700">ROUGE Score</span>
+                                <span class="text-sm text-gray-600">${(data.rouge_score * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="${getScoreColor(data.rouge_score)} h-3 rounded-full transition-all duration-500" style="width: ${data.rouge_score * 100}%"></div>
                             </div>
                         </div>
                     </div>
